@@ -46,10 +46,15 @@ use delta_kernel::scan::ScanBuilder;
 use delta_kernel::snapshot::Snapshot;
 use delta_kernel::Table;
 use log::debug;
+use object_store::aws::AmazonS3Builder;
+use object_store::local::LocalFileSystem;
+use object_store::DynObjectStore;
 // use secrecy::{ExposeSecret, SecretString};
 use snafu::prelude::*;
 use std::{collections::HashMap, sync::Arc};
 use url::Url;
+
+use crate::utils::ensure_scheme;
 
 #[derive(Debug, Snafu)]
 pub enum Error {
@@ -104,8 +109,8 @@ impl DeltaTable {
         storage_options: HashMap<String, String>,
         // storage_options: HashMap<String, SecretString>,
     ) -> Result<Self> {
-        let table =
-            Table::try_from_uri(ensure_folder_location(table_location)).context(DeltaTableSnafu)?;
+        let table = Table::try_from_uri(ensure_folder_location(table_location.clone()))
+            .context(DeltaTableSnafu)?;
 
         let engine = Arc::new(
             DefaultEngine::try_new(
@@ -309,6 +314,7 @@ impl TableProvider for DeltaTable {
                     "Failed to get object store for table location".to_string(),
                 )
             })?;
+
         let parquet_file_reader_factory = Arc::new(DefaultParquetFileReaderFactory::new(store))
             as Arc<dyn ParquetFileReaderFactory>;
         let projected_delta_schema = project_delta_schema(

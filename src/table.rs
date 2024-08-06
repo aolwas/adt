@@ -9,7 +9,7 @@ use datafusion::execution::context::SessionConfig;
 use datafusion::prelude::*;
 use log::{debug, info};
 use object_store::aws::AmazonS3Builder;
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, env, sync::Arc};
 use url::Url;
 
 use crate::cli::Format;
@@ -123,12 +123,20 @@ impl TableContext {
 
     async fn delta_table_provider(&self) -> Result<DeltaTable> {
         debug!("get delta table provider");
-        // deltalake::aws::register_handlers(None);
-        // Ok(DeltaTableBuilder::from_uri(self.path.as_str())
-        //     .without_tombstones()
-        //     .load()
-        //     .await?)
-        Ok(DeltaTable::from(format!("{}", self.path), HashMap::new())?)
+        let mut storage_options = HashMap::new();
+        match self.path.scheme() {
+            "s3" | "s3a" => {
+                for (os_key, os_value) in env::vars_os() {
+                    if let (Some(key), Some(value)) = (os_key.to_str(), os_value.to_str()) {
+                        if key.starts_with("AWS_") {
+                            storage_options.insert(key.to_ascii_lowercase(), value.to_string());
+                        }
+                    }
+                }
+            }
+            _ => (),
+        }
+        Ok(DeltaTable::from(format!("{}", self.path), storage_options)?)
     }
 }
 
