@@ -1,34 +1,30 @@
-[package]
-name = "adt"
-description = "Aolwas data tools: small toy project for data processing while learning Rust"
-version = "1.2.0"
-edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace.package]
+authors = ["Aolwas <maxime.cottret@gmail.com>"]
+edition = "2024"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/aolwas/adt"
+rust-version = "1.85.0"
+version = "2.0.0"
 
-[dependencies]
-clap = { version = "4.4", features = ["derive"] }
-anyhow = { version = "1" }
+[workspace]
+resolver = "2"
+members = ["crates/core", "crates/cli", "crates/providers"]
+
+
+[workspace.dependencies]
 chrono = { version = "0.4" }
 url = { version = "2.3" }
 log = { version = "0.4" }
-simple_logger = { version = "4.2" }
+snafu = { version = "0.8.5" }
 
 # sql dependencies
-arrow = { version = "52", features = ["prettyprint"] }
-deltalake = { version = "0.18.1", features = ["datafusion", "s3"]}
-datafusion = { version = "39" }
-object_store = { version = "0.10.1", features=["aws"] }
-
-# tui
-crossterm = { version = "0.27" }
-ratatui = { version = "0.27" }
+arrow = { version = ">=54,<55", default-features = false }
+datafusion = { version = ">=45,<46", default-features = false }
+object_store = { version = ">=0.11,<0.12", default-features = false }
 
 # runtime
-tokio = { version = "^1.0", features = ["rt-multi-thread"] }
+tokio = { version = "^1.0", default-features = false }
 futures = { version = "0.3" }
-
-# For future dev
-# axum = { version = "0.6" }
-# hyper = { version = "0.14", features = ["full"] }
-# tower = { version = "0.4" }
+async-trait = { version = "0.1.81" }

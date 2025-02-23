@@ -1,0 +1,25 @@
+[package]
+name = "adt-core"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+url = { workspace = true }
+log = { workspace = true }
+snafu = { workspace = true }
+
+# sql dependencies
+datafusion = { workspace = true, features = ["default"] }
+datafusion-functions-json = { version = ">=0.45,<0.46" }
+object_store = { workspace = true, features = ["aws"] }
+adt-providers = { path = "../providers" }
+
+# runtime
+tokio = { workspace = true, features = ["full"] }
+futures = { workspace = true }
+async-trait = { workspace = true }

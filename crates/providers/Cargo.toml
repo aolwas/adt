@@ -1,0 +1,21 @@
+[package]
+name = "adt-providers"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+url = { workspace = true }
+log = { workspace = true }
+snafu = { workspace = true }
+arrow = { workspace = true }
+datafusion = { workspace = true }
+async-trait = { workspace = true }
+delta_kernel = { version = ">=0.6, <0.7", features = [
+    "default-engine",
+    "cloud",
+] }

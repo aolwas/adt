@@ -1,10 +1,36 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use log;
+use std::fmt::{Display, Formatter, Result};
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Format {
     Parquet,
     Delta,
+    Json,
+    NDJson,
+    Csv,
+}
+
+impl Display for Format {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        match self {
+            Format::Parquet => {
+                write!(f, "parquet")
+            }
+            Format::Delta => {
+                write!(f, "deltatable")
+            }
+            Format::Csv => {
+                write!(f, "csv")
+            }
+            Format::Json => {
+                write!(f, "json")
+            }
+            Format::NDJson => {
+                write!(f, "ndjson")
+            }
+        }
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -29,7 +55,7 @@ pub struct Cli {
 pub enum Commands {
     /// view (and export) parquet or delta tables
     View {
-        table_path: String,
+        uri: String,
         #[arg(short, long, value_enum, default_value_t = Format::Delta)]
         format: Format,
         #[arg(short, long, default_value_t = String::from("select * from tbl"))]
@@ -38,32 +64,16 @@ pub enum Commands {
         limit: usize,
         #[arg(short, long)]
         partitions: Option<String>,
-        #[arg(long, default_value_t = false)]
-        no_tui: bool,
-        #[arg(short, long)]
-        output_path: Option<String>,
+        // #[arg(short, long)]
+        // output_path: Option<String>,
     },
     /// execute sql file
     Execute { sql_file: String },
     /// print parquet or delta table schema
     Schema {
-        table_path: String,
+        uri: String,
         #[arg(short, long, value_enum, default_value_t = Format::Delta)]
         format: Format,
-        #[arg(short, long)]
-        partitions: Option<String>,
-        #[arg(long, default_value_t = false)]
-        no_tui: bool,
-    },
-    /// Print logical plan
-    Explain {
-        table_path: String,
-        #[arg(short, long, value_enum, default_value_t = Format::Delta)]
-        format: Format,
-        #[arg(short, long, default_value_t = String::from("select * from tbl"))]
-        query: String,
-        #[arg(short, long, default_value_t = 50)]
-        limit: usize,
         #[arg(short, long)]
         partitions: Option<String>,
     },
