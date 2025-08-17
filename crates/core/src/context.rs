@@ -3,22 +3,23 @@ use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use datafusion::execution::session_state::SessionStateBuilder;
 use datafusion::logical_expr::{DdlStatement, LogicalPlan};
 use datafusion::prelude::{DataFrame, SQLOptions, SessionConfig};
+use deltalake::delta_datafusion::DeltaTableFactory;
 use object_store;
 use object_store::aws::AmazonS3Builder;
 use std::sync::Arc;
-use url::Url;
 
-use adt_providers::deltatable::DeltaTableFactory;
+#[cfg(feature = "adt-delta")]
+use adt_providers::deltatable::DeltaTableFactory as NativeDeltaTableFactory;
 use adt_providers::listing::ListingTableFactory;
 
 use crate::error::AdtError;
 use crate::utils::ensure_scheme;
 
-pub struct SQLContext {
+pub struct ADTContext {
     ctx: SessionContext,
 }
 
-impl SQLContext {
+impl ADTContext {
     pub fn new() -> Self {
         let env = RuntimeEnvBuilder::new().build().unwrap();
         let ses = SessionConfig::new()
@@ -27,7 +28,7 @@ impl SQLContext {
             .set_str("datafusion.sql_parser.dialect", "postgresql")
             .with_create_default_catalog_and_schema(true);
 
-        let session_state = SessionStateBuilder::new()
+        let default_session_state = SessionStateBuilder::new()
             .with_default_features()
             .with_config(ses)
             .with_runtime_env(Arc::new(env))
@@ -38,14 +39,23 @@ impl SQLContext {
             .with_table_factory("NDJSON".into(), Arc::new(ListingTableFactory::new()))
             .with_table_factory("AVRO".into(), Arc::new(ListingTableFactory::new()))
             .with_table_factory("ARROW".into(), Arc::new(ListingTableFactory::new()))
-            .with_table_factory("DELTATABLE".into(), Arc::new(DeltaTableFactory::new()))
-            .build();
+            .with_table_factory("DELTATABLE".into(), Arc::new(DeltaTableFactory {}));
+
+        #[cfg(feature = "adt-delta")]
+        let session_state = default_session_state.with_table_factory(
+            "ADT_DELTATABLE".into(),
+            Arc::new(NativeDeltaTableFactory::new()),
+        );
+
+        #[cfg(not(feature = "adt-delta"))]
+        let session_state = default_session_state;
+
         Self {
-            ctx: SessionContext::new_with_state(session_state).enable_url_table(),
+            ctx: SessionContext::new_with_state(session_state.build()).enable_url_table(),
         }
     }
 
-    fn register_object_store(&self, location: &String) -> Result<(), AdtError> {
+    fn register_object_store(&self, location: &String, file_type: &String) -> Result<(), AdtError> {
         let url = ensure_scheme(location).unwrap();
         match url.scheme() {
             "s3" | "s3a" => {
@@ -56,14 +66,15 @@ impl SQLContext {
                     )
                     .build()
                     .expect("Unable to create S3 object store");
-                let s3_url =
-                    Url::parse(&url[url::Position::BeforeScheme..url::Position::AfterHost])
-                        .expect("Unable to get bucket based S3 url");
+
                 let _ = self
                     .ctx
                     .runtime_env()
                     .object_store_registry
-                    .register_store(&s3_url, Arc::new(s3));
+                    .register_store(&url, Arc::new(s3));
+                if file_type == "DELTATABLE" {
+                    deltalake::aws::register_handlers(None);
+                }
             }
             _ => (),
         }
@@ -72,7 +83,8 @@ impl SQLContext {
 
     pub async fn execute_logical_plan(&self, plan: LogicalPlan) -> Result<DataFrame, AdtError> {
         if let LogicalPlan::Ddl(DdlStatement::CreateExternalTable(cmd)) = &plan {
-            self.register_object_store(&cmd.location)?;
+            println!("{:?}", cmd);
+            self.register_object_store(&cmd.location, &cmd.file_type)?;
         }
         let df = self.ctx.execute_logical_plan(plan).await?;
         Ok(df)

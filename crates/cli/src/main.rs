@@ -8,12 +8,12 @@ use minijinja::render;
 use simple_logger::SimpleLogger;
 use snafu::Whatever;
 
-use adt_core::context::SQLContext;
+use adt_core::context::ADTContext;
 
 mod cli;
 use crate::cli::{Cli, Commands};
 
-async fn execute(ctx: &SQLContext, sql: &str, with_output: bool) -> Result<(), Whatever> {
+async fn execute(ctx: &ADTContext, sql: &str, with_output: bool) -> Result<(), Whatever> {
     let df = ctx.sql(sql).await.expect("Query execution fails");
     let records = df
         .clone()
@@ -40,7 +40,7 @@ async fn main() {
         _ => {}
     }
 
-    let ctx = SQLContext::new();
+    let ctx = ADTContext::new();
 
     match &cli.command {
         Commands::View {
