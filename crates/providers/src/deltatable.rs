@@ -45,10 +45,13 @@ use delta_kernel::scan::ScanBuilder;
 use delta_kernel::scan::state::{DvInfo, GlobalScanState, Stats};
 use delta_kernel::snapshot::Snapshot;
 use log::debug;
+use object_store::DynObjectStore;
+use object_store::path::Path;
 use std::{collections::HashMap, sync::Arc};
 use url::Url;
 
 use crate::error::DeltaError;
+use crate::utils::ensure_scheme;
 
 type Result<T, E = DeltaError> = std::result::Result<T, E>;
 
@@ -60,6 +63,23 @@ impl DeltaTableFactory {
     pub fn new() -> Self {
         Self::default()
     }
+
+    // fn register_object_store(
+    //     &self,
+    //     ctx: &dyn Session,
+    //     location: &String,
+    // ) -> Option<Arc<dyn ObjectStore>> {
+    //     let url = ensure_scheme(location).unwrap();
+    //     match url.scheme() {
+    //         "s3" | "s3a" => {
+    //             let s3_url =
+    //                 Url::parse(&url[url::Position::BeforeScheme..url::Position::AfterHost])
+    //                     .expect("Unable to get bucket based S3 url");
+    //             ctx.runtime_env().object_store_registry.get_store(&s3_url);
+    //         }
+    //         _ => None,
+    //     }
+    // }
 }
 
 #[async_trait]
@@ -69,11 +89,9 @@ impl TableProviderFactory for DeltaTableFactory {
         _ctx: &dyn Session,
         cmd: &CreateExternalTable,
     ) -> datafusion::error::Result<Arc<dyn TableProvider>> {
-        let provider = if cmd.options.is_empty() {
-            DeltaTable::from(cmd.to_owned().location, HashMap::new())
-        } else {
-            DeltaTable::from(cmd.to_owned().location, cmd.to_owned().options)
-        };
+        let url = ensure_scheme(cmd.location.as_str()).unwrap();
+        let store = _ctx.runtime_env().object_store_registry.get_store(&url);
+        let provider = DeltaTable::from(cmd.to_owned().location, store.unwrap());
         Ok(Arc::new(provider.unwrap()))
     }
 }
@@ -89,18 +107,14 @@ pub struct DeltaTable {
 }
 
 impl DeltaTable {
-    pub fn from(
-        table_location: String,
-        storage_options: HashMap<String, String>,
-        // storage_options: HashMap<String, SecretString>,
-    ) -> Result<Self> {
+    pub fn from(table_location: String, object_store: Arc<DynObjectStore>) -> Result<Self> {
         let table = Table::try_from_uri(ensure_folder_location(table_location.clone()))?;
 
-        let engine = Arc::new(DefaultEngine::try_new(
-            table.location(),
-            storage_options,
+        let engine = Arc::new(DefaultEngine::new(
+            object_store,
+            Path::parse(table_location).unwrap(),
             Arc::new(TokioBackgroundExecutor::new()),
-        )?);
+        ));
 
         let snapshot = table.snapshot(engine.as_ref(), None)?;
 
@@ -293,6 +307,8 @@ impl TableProvider for DeltaTable {
                     "Failed to get object store for table location".to_string(),
                 )
             })?;
+
+        println!("{:?}", store);
 
         let parquet_file_reader_factory = Arc::new(DefaultParquetFileReaderFactory::new(store))
             as Arc<dyn ParquetFileReaderFactory>;
