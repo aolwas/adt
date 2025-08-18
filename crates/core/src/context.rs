@@ -3,6 +3,7 @@ use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use datafusion::execution::session_state::SessionStateBuilder;
 use datafusion::logical_expr::{DdlStatement, LogicalPlan};
 use datafusion::prelude::{DataFrame, SQLOptions, SessionConfig};
+#[cfg(feature = "delta")]
 use deltalake::delta_datafusion::DeltaTableFactory;
 use object_store;
 use object_store::aws::AmazonS3Builder;
@@ -38,17 +39,17 @@ impl ADTContext {
             .with_table_factory("JSON".into(), Arc::new(ListingTableFactory::new()))
             .with_table_factory("NDJSON".into(), Arc::new(ListingTableFactory::new()))
             .with_table_factory("AVRO".into(), Arc::new(ListingTableFactory::new()))
-            .with_table_factory("ARROW".into(), Arc::new(ListingTableFactory::new()))
-            .with_table_factory("DELTATABLE".into(), Arc::new(DeltaTableFactory {}));
+            .with_table_factory("ARROW".into(), Arc::new(ListingTableFactory::new()));
 
         #[cfg(feature = "adt-delta")]
         let session_state = default_session_state.with_table_factory(
-            "ADT_DELTATABLE".into(),
+            "DELTATABLE".into(),
             Arc::new(NativeDeltaTableFactory::new()),
         );
 
-        #[cfg(not(feature = "adt-delta"))]
-        let session_state = default_session_state;
+        #[cfg(feature = "delta")]
+        let session_state = default_session_state
+            .with_table_factory("DELTATABLE".into(), Arc::new(DeltaTableFactory {}));
 
         Self {
             ctx: SessionContext::new_with_state(session_state.build()).enable_url_table(),
@@ -83,7 +84,6 @@ impl ADTContext {
 
     pub async fn execute_logical_plan(&self, plan: LogicalPlan) -> Result<DataFrame, AdtError> {
         if let LogicalPlan::Ddl(DdlStatement::CreateExternalTable(cmd)) = &plan {
-            println!("{:?}", cmd);
             self.register_object_store(&cmd.location, &cmd.file_type)?;
         }
         let df = self.ctx.execute_logical_plan(plan).await?;

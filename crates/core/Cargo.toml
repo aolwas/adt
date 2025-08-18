@@ -7,7 +7,9 @@ license = { workspace = true }
 authors = { workspace = true }
 
 [features]
+default = ["delta"]
 adt-delta = ["adt-providers/delta"]
+delta = ["deltalake"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -21,7 +23,7 @@ datafusion = { workspace = true, features = ["default"] }
 datafusion-functions-json = { version = ">=0.48,<0.49" }
 object_store = { workspace = true, features = ["aws"] }
 adt-providers = { path = "../providers" }
-deltalake = { version = "0.27", features = ["s3", "datafusion"] }
+deltalake = { version = "0.27", features = ["s3", "datafusion"], optional = true}
 
 # runtime
 tokio = { workspace = true, features = ["full"] }
