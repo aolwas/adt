@@ -45,7 +45,7 @@ pub enum LogLevel {
 #[command(name = "adt")]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
-    #[arg(short, long, value_enum, default_value_t = LogLevel::Info)]
+    #[arg(short, long, value_enum, default_value_t = LogLevel::Off)]
     log_level: LogLevel,
     #[command(subcommand)]
     pub command: Commands,
